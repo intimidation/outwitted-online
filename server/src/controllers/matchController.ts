@@ -37,9 +37,39 @@ matchRouter.post('/', (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/matches
- * Get active matches for a user
+ * GET /api/matches/open
+ * Fetch open matches waiting for an opponent
  */
+matchRouter.get('/open', (req: Request, res: Response) => {
+    try {
+        const userId = (req.query.userId as string) || '';
+        const matches = MatchService.getOpenMatches(userId);
+        res.json({ success: true, count: matches.length, matches });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Failed to fetch open matches' });
+    }
+});
+
+/**
+ * POST /api/matches/:id/join
+ * Join an open match
+ */
+matchRouter.post('/:id/join', (req: Request, res: Response) => {
+    try {
+        const matchId = req.params.id;
+        const { userId, race } = req.body;
+
+        if (!userId) {
+            res.status(400).json({ error: 'userId is required' });
+            return;
+        }
+
+        const match = MatchService.joinOpenMatch(matchId, userId, race);
+        res.json({ success: true, match });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Failed joining match' });
+    }
+});
 matchRouter.get('/', (req: Request, res: Response) => {
     const userId = req.query.userId as string;
     if (!userId) {

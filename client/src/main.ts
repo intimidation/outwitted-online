@@ -107,84 +107,169 @@ async function updateDevUserDisplay() {
     });
 };
 
-// Refresh Active Matches List
+let activeBattlesTab: 'my' | 'open' = 'my';
+
+(window as any).switchBattlesTab = (tab: 'my' | 'open') => {
+    activeBattlesTab = tab;
+    document.getElementById('tab-my-battles')!.style.background = tab === 'my' ? 'var(--accent-green)' : '#272732';
+    document.getElementById('tab-open-battles')!.style.background = tab === 'open' ? 'var(--accent-green)' : '#272732';
+    refreshActiveMatchesList();
+};
+
+(window as any).toggleOpponentInput = () => {
+    const oppType = (document.getElementById('opponent-type-select') as HTMLSelectElement).value;
+    const group = document.getElementById('opponent-input-group')!;
+    group.style.display = oppType === 'challenge' ? 'flex' : 'none';
+};
+
+// Refresh Active & Open Matches List
 async function refreshActiveMatchesList() {
     const listDiv = document.getElementById('active-matches-list')!;
-    listDiv.innerHTML = '<div style="font-size: 12px; color: var(--text-secondary); text-align: center;">Loading...</div>';
+    listDiv.innerHTML = '<div style="font-size: 12px; color: var(--text-secondary); text-align: center;">Loading battles...</div>';
 
     try {
-        const res = await OutwittersApiClient.getMatches(currentUserId);
-        const matches = res.matches || [];
+        if (activeBattlesTab === 'open') {
+            // Load Open Games waiting for an opponent
+            const res = await OutwittersApiClient.getOpenMatches(currentUserId);
+            const matches = res.matches || [];
 
-        if (matches.length === 0) {
-            listDiv.innerHTML = '<div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 10px;">No active matches. Launch one below!</div>';
-            return;
+            if (matches.length === 0) {
+                listDiv.innerHTML = '<div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 10px;">No open games right now. Create one below!</div>';
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            matches.forEach((m: any) => {
+                const card = document.createElement('div');
+                card.className = 'match-card your-turn';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong style="font-size:13px; color:#fff;">${m.mapId} (Host: ${m.player1Id})</strong>
+                        <span style="font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; background:var(--accent-green); color:#fff;">
+                            OPEN
+                        </span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-secondary);">
+                        Host Race: ${m.p1Race} • ${m.pogNerfs ? 'PoG' : 'Standard'}
+                    </div>
+                    <button style="margin-top:4px; padding:6px; background:var(--accent-green); color:#fff; border:none; border-radius:6px; font-weight:800; text-transform:uppercase; font-size:10px; cursor:pointer;">
+                        ⚔️ Join Battle Now
+                    </button>
+                `;
+                card.querySelector('button')!.onclick = () => joinOpenMatch(m.id);
+                listDiv.appendChild(card);
+            });
+        } else {
+            // Load My Active Battles
+            const res = await OutwittersApiClient.getMatches(currentUserId);
+            const matches = res.matches || [];
+
+            if (matches.length === 0) {
+                listDiv.innerHTML = '<div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 10px;">No active matches. Launch or join one below!</div>';
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            matches.forEach((m: any) => {
+                const isYourTurn = m.currentPlayer === (m.player1Id === currentUserId ? 'P1' : 'P2');
+                const card = document.createElement('div');
+                card.className = `match-card ${isYourTurn ? 'your-turn' : ''}`;
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong style="font-size:13px; color:#fff;">${m.mapId} (${m.pogNerfs ? 'PoG' : 'Standard'})</strong>
+                        <span style="font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; background:${isYourTurn ? 'var(--accent-green)' : '#272732'}; color:#fff;">
+                            ${isYourTurn ? 'YOUR TURN' : 'WAITING'}
+                        </span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-secondary);">
+                        Turn ${m.currentTurnNumber} • ${m.status.toUpperCase()}
+                    </div>
+                    <button style="margin-top:4px; padding:6px; background:var(--accent-blue); color:#fff; border:none; border-radius:6px; font-weight:800; text-transform:uppercase; font-size:10px; cursor:pointer;">
+                        Enter Battle
+                    </button>
+                `;
+                card.querySelector('button')!.onclick = () => loadOnlineMatch(m.id);
+                listDiv.appendChild(card);
+            });
         }
-
-        listDiv.innerHTML = '';
-        matches.forEach((m: any) => {
-            const isYourTurn = m.currentPlayer === (m.player1Id === currentUserId ? 'P1' : 'P2');
-            const card = document.createElement('div');
-            card.className = `match-card ${isYourTurn ? 'your-turn' : ''}`;
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong style="font-size:13px; color:#fff;">${m.mapId} (${m.pogNerfs ? 'PoG' : 'Standard'})</strong>
-                    <span style="font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; background:${isYourTurn ? 'var(--accent-green)' : '#272732'}; color:#fff;">
-                        ${isYourTurn ? 'YOUR TURN' : 'WAITING'}
-                    </span>
-                </div>
-                <div style="font-size:11px; color:var(--text-secondary);">
-                    Turn ${m.currentTurnNumber} • ${m.status.toUpperCase()}
-                </div>
-                <button style="margin-top:4px; padding:6px; background:var(--accent-blue); color:#fff; border:none; border-radius:6px; font-weight:800; text-transform:uppercase; font-size:10px; cursor:pointer;">
-                    Enter Battle
-                </button>
-            `;
-            card.querySelector('button')!.onclick = () => loadOnlineMatch(m.id);
-            listDiv.appendChild(card);
-        });
     } catch (err: any) {
-        listDiv.innerHTML = `<div style="font-size:12px; color:var(--accent-red);">Error: ${err.message}</div>`;
+        listDiv.innerHTML = `<div style="font-size:12px; color:var(--accent-red);">Connection info: ${err.message}</div>`;
     }
 }
+
+// Join Open Match
+async function joinOpenMatch(matchId: string) {
+    try {
+        await OutwittersApiClient.joinOpenMatch(matchId, currentUserId, selectedRace);
+        alert('Successfully joined battle!');
+        await loadOnlineMatch(matchId);
+    } catch (err: any) {
+        alert('Failed joining match: ' + err.message);
+    }
+}
+
+// Automated Ranked Matchmaking Queue
+(window as any).joinMatchmakingQueue = async () => {
+    const pogNerfs = (document.getElementById('pog-toggle') as HTMLInputElement).checked;
+    try {
+        const res = await fetch(`${getApiBaseUrl()}/matchmaking/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: currentUserId,
+                preferredRace: selectedRace,
+                pogMode: pogNerfs,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Matchmaking failed');
+
+        alert('Searching for ranked opponent... If another player is searching, game will start automatically!');
+        await refreshActiveMatchesList();
+    } catch (err: any) {
+        alert('Matchmaking error: ' + err.message);
+    }
+};
 
 // Create Online Match
 (window as any).createNewOnlineMatch = async () => {
     const mapSelect = (document.getElementById('map-select') as HTMLSelectElement).value;
+    const oppType = (document.getElementById('opponent-type-select') as HTMLSelectElement).value;
     const opponentInput = (document.getElementById('opponent-id-input') as HTMLInputElement).value.trim();
-    const opponentRaceSelect = (document.getElementById('opponent-race-select') as HTMLSelectElement).value;
     const pogNerfs = (document.getElementById('pog-toggle') as HTMLInputElement).checked;
     const isRanked = (document.getElementById('ranked-toggle') as HTMLInputElement).checked;
 
-    if (!opponentInput) {
-        alert('Please enter opponent User ID');
-        return;
+    let targetOpponentId = 'open';
+    if (oppType === 'challenge') {
+        if (!opponentInput) {
+            alert('Please enter opponent User ID or username');
+            return;
+        }
+        const oppUser = await OutwittersApiClient.devLogin(opponentInput);
+        targetOpponentId = oppUser.user.id;
     }
 
     const availableRaces: RaceId[] = ['Scallywags', 'Feedback', 'Adorables', 'Veggienauts'];
-    const resolvedOpponentRace: RaceId = opponentRaceSelect === 'random'
-        ? availableRaces[Math.floor(Math.random() * availableRaces.length)]
-        : (opponentRaceSelect as RaceId);
+    const randomOpponentRace = availableRaces[Math.floor(Math.random() * availableRaces.length)];
 
     try {
-        const oppUser = await OutwittersApiClient.devLogin(opponentInput);
-        const opponentUserId = oppUser.user.id;
-
         const res = await OutwittersApiClient.createMatch({
             creatorUserId: currentUserId,
-            opponentUserId,
+            opponentUserId: targetOpponentId,
             mapId: mapSelect,
             isRanked,
             pogNerfs,
             creatorRace: selectedRace,
-            opponentRace: resolvedOpponentRace,
+            opponentRace: randomOpponentRace,
         });
 
-        alert('Match launched!');
+        alert(oppType === 'open' ? 'Open Battle published! Anyone can join now!' : 'Challenge sent!');
         await refreshActiveMatchesList();
-        await loadOnlineMatch(res.match.id);
+        if (oppType === 'challenge') {
+            await loadOnlineMatch(res.match.id);
+        }
     } catch (err: any) {
-        alert('Failed creating match: ' + err.message);
+        alert('Failed launching match: ' + err.message);
     }
 };
 

@@ -56,11 +56,15 @@ export class MatchService {
                 pogEloRating: 1200,
             });
         }
-        if (!memoryStore.getUser(dto.opponentUserId)) {
+        // Handle open matches where opponent is not specified yet
+        const isOpenMatch = !dto.opponentUserId || dto.opponentUserId === 'open' || dto.opponentUserId === 'pending';
+        const p2UserId = isOpenMatch ? 'pending' : dto.opponentUserId;
+
+        if (!isOpenMatch && !memoryStore.getUser(p2UserId)) {
             memoryStore.createUser({
-                id: dto.opponentUserId,
-                username: dto.opponentUserId.replace('usr_', ''),
-                displayName: dto.opponentUserId.replace('usr_', ''),
+                id: p2UserId,
+                username: p2UserId.replace('usr_', ''),
+                displayName: p2UserId.replace('usr_', ''),
                 eloRating: 1200,
                 pogEloRating: 1200,
             });
@@ -72,9 +76,11 @@ export class MatchService {
             throw new Error(`Creator has reached the active match limit of ${MAX_ACTIVE_MATCHES_PER_PLAYER}`);
         }
 
-        const opponentActive = memoryStore.getActiveMatchesCount(dto.opponentUserId);
-        if (opponentActive >= MAX_ACTIVE_MATCHES_PER_PLAYER) {
-            throw new Error(`Opponent has reached the active match limit of ${MAX_ACTIVE_MATCHES_PER_PLAYER}`);
+        if (!isOpenMatch) {
+            const opponentActive = memoryStore.getActiveMatchesCount(p2UserId);
+            if (opponentActive >= MAX_ACTIVE_MATCHES_PER_PLAYER) {
+                throw new Error(`Opponent has reached the active match limit of ${MAX_ACTIVE_MATCHES_PER_PLAYER}`);
+            }
         }
 
         // Get map definition
@@ -93,10 +99,7 @@ export class MatchService {
         // Design decision: Custom maps are UNRANKED only
         const isRanked = isCustomMap ? false : (dto.isRanked ?? true);
 
-        // Randomize or pick turn assignment
         const p1UserId = dto.creatorUserId;
-        const p2UserId = dto.opponentUserId;
-
         const p1ColorKey: ColorKey = dto.creatorColor || 'blue';
         const p2ColorKey: ColorKey = p1ColorKey === 'red' ? 'blue' : 'red';
 
@@ -126,7 +129,7 @@ export class MatchService {
             p1ColorKey,
             p2ColorKey,
             sideSwap: gameParams.sideSwap,
-            status: 'active',
+            status: isOpenMatch ? 'active' : 'active', // Active game
             winnerId: null,
             currentTurnNumber: 1,
             currentPlayer: 'P1',
@@ -136,6 +139,37 @@ export class MatchService {
         };
 
         return memoryStore.createMatch(matchRecord);
+    }
+
+    /**
+     * Join an open match created by another player
+     */
+    static joinOpenMatch(matchId: string, joiningUserId: string, joiningRace?: RaceId): MatchRecord {
+        const match = memoryStore.getMatch(matchId);
+        if (!match) throw new Error(`Match ${matchId} not found`);
+        if (match.player2Id !== 'pending' && match.player1Id !== 'pending') {
+            throw new Error(`Match ${matchId} is already full`);
+        }
+
+        if (match.player1Id === 'pending') {
+            match.player1Id = joiningUserId;
+            if (joiningRace) match.p1Race = joiningRace;
+        } else {
+            match.player2Id = joiningUserId;
+            if (joiningRace) match.p2Race = joiningRace;
+        }
+
+        memoryStore.updateMatch(match);
+        return match;
+    }
+
+    /**
+     * Fetch open matches waiting for an opponent
+     */
+    static getOpenMatches(excludeUserId: string): MatchRecord[] {
+        return Array.from(memoryStore.matches.values())
+            .filter(m => m.status === 'active' && (m.player2Id === 'pending' || m.player1Id === 'pending') && m.player1Id !== excludeUserId)
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     }
 
     /**

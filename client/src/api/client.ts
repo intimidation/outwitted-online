@@ -120,6 +120,26 @@ export class OutwittersApiClient {
     }
 
     /**
+     * Get open matches waiting for any opponent to join
+     */
+    static async getOpenMatches(userId: string) {
+        const res = await safeFetch(`/matches/open?userId=${encodeURIComponent(userId)}`);
+        return res.json();
+    }
+
+    /**
+     * Join an open match
+     */
+    static async joinOpenMatch(matchId: string, userId: string, race?: RaceId) {
+        const res = await safeFetch(`/matches/${encodeURIComponent(matchId)}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, race }),
+        });
+        return res.json();
+    }
+
+    /**
      * Create a new match
      */
     static async createMatch(params: CreateMatchParams) {
