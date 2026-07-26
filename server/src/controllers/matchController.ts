@@ -121,6 +121,42 @@ matchRouter.post('/:id/resign', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/matches/:id/events
+ * Real-time SSE endpoint for turn notification alerts
+ */
+matchRouter.get('/:id/events', (req: Request, res: Response) => {
+    const matchId = req.params.id;
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+        res.status(400).json({ error: 'userId query parameter is required' });
+        return;
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Send initial connection event
+    res.write(`data: ${JSON.stringify({ type: 'connected', matchId, userId })}\n\n`);
+
+    // Poll every 3 seconds for match updates for this user
+    const interval = setInterval(() => {
+        try {
+            const visibleState = MatchService.getVisibleMatchState(matchId, userId);
+            res.write(`data: ${JSON.stringify({ type: 'state_update', match: visibleState })}\n\n`);
+        } catch (err: any) {
+            // Match closed or user invalid
+        }
+    }, 3000);
+
+    req.on('close', () => {
+        clearInterval(interval);
+    });
+});
+
+/**
  * GET /api/matches/:id/history
  * Fetch full turn history for replay / analyze mode
  */

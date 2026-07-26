@@ -1,0 +1,17 @@
+{
+  "short_name": "Outwitters",
+  "name": "Outwitters Online 1v1 Tactical Strategy",
+  "description": "Asynchronous 1v1 tactical hex strategy game",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "background_color": "#0a0a0d",
+  "theme_color": "#22c55e",
+  "display": "standalone",
+  "orientation": "portrait"
+}
