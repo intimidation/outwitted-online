@@ -319,6 +319,15 @@
     <div id="lobby-screen">
         <h1>OUTWITTERS ONLINE</h1>
 
+        <!-- DIAGNOSTIC DEBUG PANEL -->
+        <div id="debug-panel" style="background:#13131c; border:1px solid #3b82f6; border-radius:10px; padding:10px; font-size:11px; display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:#60a5fa; font-weight:800;">🌐 API TARGET: <span id="current-api-target" style="color:#fff;">Loading...</span></span>
+                <button onclick="promptCustomApiUrl()" style="background:#2563eb; color:#fff; border:none; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">Edit API URL</button>
+            </div>
+            <pre id="debug-log-output" style="background:#07070a; color:#4ade80; padding:6px; border-radius:6px; font-family:monospace; font-size:10px; max-height:80px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">Diagnostics ready...</pre>
+        </div>
+
         <div class="user-bar">
             <span>👤 Logged in as: <strong id="user-display-name">Player 1</strong></span>
             <button onclick="switchUserPrompt()">Switch User</button>

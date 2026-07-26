@@ -23,7 +23,7 @@ import {
     type RaceId,
     type ColorKey,
 } from '@outwitters/shared';
-import { OutwittersApiClient } from './api/client.js';
+import { OutwittersApiClient, getApiBaseUrl, setCustomApiBaseUrl } from './api/client.js';
 
 // App State
 let currentUserId = 'usr_player1';
@@ -59,10 +59,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
     ctx = canvas.getContext('2d')!;
 
+    const apiTargetEl = document.getElementById('current-api-target');
+    if (apiTargetEl) {
+        apiTargetEl.textContent = getApiBaseUrl();
+    }
+
     setupCanvasEvents();
     await updateDevUserDisplay();
     await refreshActiveMatchesList();
 });
+
+(window as any).promptCustomApiUrl = () => {
+    const current = getApiBaseUrl();
+    const input = prompt('Enter your Google Cloud Backend API URL (e.g. https://outwitters-api-xxx.a.run.app/api):', current);
+    if (input !== null && input.trim()) {
+        setCustomApiBaseUrl(input.trim());
+    }
+};
 
 // User Dev Login
 (window as any).switchUserPrompt = async () => {
