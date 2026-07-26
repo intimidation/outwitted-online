@@ -46,6 +46,26 @@ export class MatchService {
      * - Custom maps are forced to UNRANKED
      */
     static createMatch(dto: CreateMatchDTO): MatchRecord {
+        // Ensure user records exist in store (auto-provision if needed)
+        if (!memoryStore.getUser(dto.creatorUserId)) {
+            memoryStore.createUser({
+                id: dto.creatorUserId,
+                username: dto.creatorUserId.replace('usr_', ''),
+                displayName: dto.creatorUserId.replace('usr_', ''),
+                eloRating: 1200,
+                pogEloRating: 1200,
+            });
+        }
+        if (!memoryStore.getUser(dto.opponentUserId)) {
+            memoryStore.createUser({
+                id: dto.opponentUserId,
+                username: dto.opponentUserId.replace('usr_', ''),
+                displayName: dto.opponentUserId.replace('usr_', ''),
+                eloRating: 1200,
+                pogEloRating: 1200,
+            });
+        }
+
         // Enforce 300 active matches limit per player
         const creatorActive = memoryStore.getActiveMatchesCount(dto.creatorUserId);
         if (creatorActive >= MAX_ACTIVE_MATCHES_PER_PLAYER) {

@@ -185,28 +185,30 @@ export function parseMapConfig(
         return axialLookup[name] ?? null;
     }
 
-    // Handle side swapping
+    // Handle side swapping safely
     const p1Key: PlayerId = sideSwap ? 'P2' : 'P1';
     const p2Key: PlayerId = sideSwap ? 'P1' : 'P2';
     const p1SurrKey = sideSwap ? 'p2Surround' : 'p1Surround';
     const p2SurrKey = sideSwap ? 'p1Surround' : 'p2Surround';
 
+    const basesDef = rawMap.bases ?? { P1: 'A1', P2: 'A1' };
     const parsedBases = {
-        P1: nameToAxial(rawMap.bases[p1Key]),
-        P2: nameToAxial(rawMap.bases[p2Key]),
+        P1: nameToAxial(basesDef[p1Key] ?? 'A1'),
+        P2: nameToAxial(basesDef[p2Key] ?? 'A1'),
     };
 
+    const spawnsDef = rawMap.spawns ?? { P1: [], P2: [] };
     const parsedSpawns = {
-        P1: rawMap.spawns[p1Key].map(id => nameToAxial(id)).filter(Boolean) as HexCoord[],
-        P2: rawMap.spawns[p2Key].map(id => nameToAxial(id)).filter(Boolean) as HexCoord[],
+        P1: (spawnsDef[p1Key] ?? []).map(id => nameToAxial(id)).filter(Boolean) as HexCoord[],
+        P2: (spawnsDef[p2Key] ?? []).map(id => nameToAxial(id)).filter(Boolean) as HexCoord[],
     };
 
-    const parsedBonusSpaces = rawMap.bonusSpaces
+    const parsedBonusSpaces = (rawMap.bonusSpaces ?? [])
         .map(id => nameToAxial(id))
         .filter(Boolean) as HexCoord[];
 
-    const parsedP1Surround = rawMap[p1SurrKey as keyof RawMapDefinition] as string[];
-    const parsedP2Surround = rawMap[p2SurrKey as keyof RawMapDefinition] as string[];
+    const parsedP1Surround = (rawMap[p1SurrKey as keyof RawMapDefinition] as string[]) ?? [];
+    const parsedP2Surround = (rawMap[p2SurrKey as keyof RawMapDefinition] as string[]) ?? [];
 
     const p1SurrCoords = (parsedP1Surround ?? [])
         .map(id => nameToAxial(id))

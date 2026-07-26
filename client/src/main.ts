@@ -139,6 +139,7 @@ async function refreshActiveMatchesList() {
 (window as any).createNewOnlineMatch = async () => {
     const mapSelect = (document.getElementById('map-select') as HTMLSelectElement).value;
     const opponentInput = (document.getElementById('opponent-id-input') as HTMLInputElement).value.trim();
+    const opponentRaceSelect = (document.getElementById('opponent-race-select') as HTMLSelectElement).value;
     const pogNerfs = (document.getElementById('pog-toggle') as HTMLInputElement).checked;
     const isRanked = (document.getElementById('ranked-toggle') as HTMLInputElement).checked;
 
@@ -146,6 +147,11 @@ async function refreshActiveMatchesList() {
         alert('Please enter opponent User ID');
         return;
     }
+
+    const availableRaces: RaceId[] = ['Scallywags', 'Feedback', 'Adorables', 'Veggienauts'];
+    const resolvedOpponentRace: RaceId = opponentRaceSelect === 'random'
+        ? availableRaces[Math.floor(Math.random() * availableRaces.length)]
+        : (opponentRaceSelect as RaceId);
 
     try {
         const oppUser = await OutwittersApiClient.devLogin(opponentInput);
@@ -158,7 +164,7 @@ async function refreshActiveMatchesList() {
             isRanked,
             pogNerfs,
             creatorRace: selectedRace,
-            opponentRace: 'Scallywags',
+            opponentRace: resolvedOpponentRace,
         });
 
         alert('Match launched!');
