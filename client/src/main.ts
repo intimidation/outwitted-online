@@ -3,6 +3,8 @@ import {
     calculateValidMoves,
     calculateValidTargets,
     applyAction,
+    endTurn,
+    createInitialState,
     hexToPixel,
     hexRound,
     isBase,
@@ -316,9 +318,65 @@ async function loadOnlineMatch(matchId: string) {
     }
 }
 
+let isPassAndPlayMode = false;
+
+// Start Local Pass & Play Offline Game
+(window as any).startLocalPassAndPlay = () => {
+    const mapSelect = (document.getElementById('map-select') as HTMLSelectElement).value;
+    const pogNerfs = (document.getElementById('pog-toggle') as HTMLInputElement).checked;
+
+    const availableRaces: RaceId[] = ['Scallywags', 'Feedback', 'Adorables', 'Veggienauts'];
+    const p2Race = availableRaces[Math.floor(Math.random() * availableRaces.length)];
+
+    const rawMap = MAPS[mapSelect] || MAPS['SweetTooth'];
+    mapConfig = parseMapConfig(rawMap, false);
+
+    gameParams = {
+        mapId: mapSelect,
+        p1Race: selectedRace,
+        p2Race: p2Race,
+        p1ColorKey: 'blue',
+        p2ColorKey: 'red',
+        sideSwap: false,
+        pogNerfs: pogNerfs,
+    };
+
+    isPassAndPlayMode = true;
+    activeMatchId = 'local_pass_and_play';
+    currentMatchData = {
+        matchId: 'local_pass_and_play',
+        mapId: mapSelect,
+        isRanked: false,
+        pogNerfs: pogNerfs,
+        playerRole: 'P1',
+        yourTurn: true,
+        currentTurnNumber: 1,
+        currentPlayerRole: 'P1',
+    };
+
+    serverBaselineState = createInitialState(mapConfig, gameParams);
+    currentLocalState = JSON.parse(JSON.stringify(serverBaselineState));
+    actionQueue = [];
+
+    selectedUnit = null;
+    pendingSpawnType = null;
+    pendingMobiTeleport = null;
+    validMoves = [];
+    validTargets = [];
+
+    document.getElementById('lobby-screen')!.style.display = 'none';
+    document.getElementById('app-container')!.style.display = 'flex';
+
+    resizeCanvas();
+    centerGrid();
+    updateUI();
+    draw();
+};
+
 // Return to Menu
 (window as any).returnToMenu = () => {
     activeMatchId = null;
+    isPassAndPlayMode = false;
     document.getElementById('app-container')!.style.display = 'none';
     document.getElementById('lobby-screen')!.style.display = 'flex';
     refreshActiveMatchesList();
@@ -326,6 +384,29 @@ async function loadOnlineMatch(matchId: string) {
 
 // Submit Current Turn
 (window as any).submitCurrentTurn = async () => {
+    if (!currentLocalState || !mapConfig || !gameParams) return;
+
+    if (isPassAndPlayMode) {
+        // Local Pass & Play: process end of turn locally
+        const endResult = endTurn(currentLocalState, mapConfig);
+        if (endResult.success) {
+            currentLocalState = endResult.newState;
+            currentMatchData.currentTurnNumber = currentLocalState.turnNumber;
+            currentMatchData.currentPlayerRole = currentLocalState.turn;
+            currentMatchData.playerRole = currentLocalState.turn;
+            actionQueue = [];
+            selectedUnit = null;
+            pendingSpawnType = null;
+            pendingMobiTeleport = null;
+            validMoves = [];
+            validTargets = [];
+            updateUI();
+            draw();
+            alert(`Turn completed! Now ${currentLocalState.turn}'s turn.`);
+        }
+        return;
+    }
+
     if (!activeMatchId || !currentMatchData || !currentMatchData.yourTurn) {
         alert('It is not your turn!');
         return;
