@@ -141,9 +141,16 @@ export class MatchService {
 
         return {
             matchId: match.id,
-            status: match.status,
+            mapId: match.mapId,
+            isCustomMap: match.isCustomMap,
             isRanked: match.isRanked,
             pogNerfs: match.pogNerfs,
+            p1Race: match.p1Race,
+            p2Race: match.p2Race,
+            p1ColorKey: match.p1ColorKey,
+            p2ColorKey: match.p2ColorKey,
+            sideSwap: match.sideSwap,
+            status: match.status,
             playerRole,
             yourTurn: match.currentPlayer === playerRole,
             currentTurnNumber: match.currentTurnNumber,

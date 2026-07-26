@@ -5,6 +5,10 @@ import {
     applyAction,
     hexToPixel,
     hexRound,
+    isBase,
+    isObstacle,
+    isBonusSpace,
+    getNeighbors,
     MAPS,
     UNIT_RULES,
     COLORS,
@@ -39,6 +43,7 @@ let actionQueue: GameAction[] = [];
 // Selection & Interaction
 let selectedUnit: Unit | null = null;
 let pendingSpawnType: any = null;
+let pendingMobiTeleport: { mobi: Unit; target: Unit } | null = null;
 let validMoves: any[] = [];
 let validTargets: ValidTarget[] = [];
 
@@ -172,21 +177,28 @@ async function loadOnlineMatch(matchId: string) {
         activeMatchId = matchId;
 
         const rawMap = MAPS[currentMatchData.mapId] || MAPS['SweetTooth'];
-        mapConfig = parseMapConfig(rawMap, false);
+        mapConfig = parseMapConfig(rawMap, currentMatchData.sideSwap || false);
 
         serverBaselineState = currentMatchData.gameState;
         currentLocalState = JSON.parse(JSON.stringify(serverBaselineState));
         actionQueue = [];
 
+        // Correctly populate match gameParams from server response
         gameParams = {
             mapId: currentMatchData.mapId,
-            p1Race: 'Scallywags',
-            p2Race: 'Scallywags',
-            p1ColorKey: 'blue',
-            p2ColorKey: 'red',
-            sideSwap: false,
-            pogNerfs: currentMatchData.pogNerfs,
+            p1Race: currentMatchData.p1Race || 'Scallywags',
+            p2Race: currentMatchData.p2Race || 'Scallywags',
+            p1ColorKey: currentMatchData.p1ColorKey || 'blue',
+            p2ColorKey: currentMatchData.p2ColorKey || 'red',
+            sideSwap: currentMatchData.sideSwap || false,
+            pogNerfs: currentMatchData.pogNerfs || false,
         };
+
+        selectedUnit = null;
+        pendingSpawnType = null;
+        pendingMobiTeleport = null;
+        validMoves = [];
+        validTargets = [];
 
         document.getElementById('lobby-screen')!.style.display = 'none';
         document.getElementById('app-container')!.style.display = 'flex';
@@ -216,7 +228,7 @@ async function loadOnlineMatch(matchId: string) {
     }
 
     try {
-        const res = await OutwittersApiClient.submitTurn(
+        await OutwittersApiClient.submitTurn(
             activeMatchId,
             currentUserId,
             currentMatchData.currentTurnNumber,
@@ -234,6 +246,7 @@ async function loadOnlineMatch(matchId: string) {
     if (!currentLocalState || !currentMatchData || !currentMatchData.yourTurn) return;
     pendingSpawnType = type;
     selectedUnit = null;
+    pendingMobiTeleport = null;
     validMoves = [];
 
     const avail = mapConfig!.parsedSpawns[currentLocalState.turn].filter(sp =>
@@ -243,16 +256,24 @@ async function loadOnlineMatch(matchId: string) {
     draw();
 };
 
+// Spawn Special Unit Action (race-aware)
 (window as any).spawnSpecial = () => {
-    (window as any).spawnUnit('Bombshell');
+    if (!currentLocalState || !gameParams) return;
+    const currentRace = currentLocalState.turn === 'P1' ? gameParams.p1Race : gameParams.p2Race;
+    const specialType = RACE_SPECIAL[currentRace] || 'Bombshell';
+    (window as any).spawnUnit(specialType);
 };
 
 // Canvas & UI logic
 function updateUI() {
-    if (!currentLocalState || !currentMatchData) return;
+    if (!currentLocalState || !currentMatchData || !gameParams) return;
 
-    const role = currentMatchData.playerRole;
     const isYourTurn = currentMatchData.yourTurn;
+    const p1C = COLORS[gameParams.p1ColorKey || 'blue'];
+    const p2C = COLORS[gameParams.p2ColorKey || 'red'];
+
+    document.getElementById('p1-name')!.textContent = `${p1C.emoji} P1 (${RACE_EMOJI[gameParams.p1Race] || ''})`;
+    document.getElementById('p2-name')!.textContent = `${p2C.emoji} P2 (${RACE_EMOJI[gameParams.p2Race] || ''})`;
 
     document.getElementById('turn-banner')!.textContent =
         `TURN ${currentMatchData.currentTurnNumber} : ${isYourTurn ? 'YOUR TURN' : 'WAITING FOR OPPONENT'}`;
@@ -290,7 +311,7 @@ function centerGrid() {
 
 function setupCanvasEvents() {
     canvas.addEventListener('click', (e) => {
-        if (!currentLocalState || !mapConfig || !currentMatchData || !currentMatchData.yourTurn) return;
+        if (!currentLocalState || !mapConfig || !currentMatchData || !currentMatchData.yourTurn || !gameParams) return;
 
         const rect = canvas.getBoundingClientRect();
         const logicalX = (e.clientX - rect.left);
@@ -310,13 +331,44 @@ function setupCanvasEvents() {
                     toQ: hex.q,
                     toR: hex.r,
                 };
-                const res = applyAction(currentLocalState, action, mapConfig, gameParams!);
+                const res = applyAction(currentLocalState, action, mapConfig, gameParams);
                 if (res.success) {
                     currentLocalState = res.newState;
                     actionQueue.push(action);
                 }
             }
             pendingSpawnType = null;
+            validTargets = [];
+            updateUI();
+            draw();
+            return;
+        }
+
+        // Handle Mobi Teleport Destination Click
+        if (pendingMobiTeleport) {
+            const tgt = validTargets.find(t => t.q === hex.q && t.r === hex.r && t.special === 'MobiExecuteTeleport');
+            const mobiData = pendingMobiTeleport;
+            pendingMobiTeleport = null;
+
+            if (tgt) {
+                const action: GameAction = {
+                    action: 'ACT',
+                    fromQ: mobiData.mobi.q,
+                    fromR: mobiData.mobi.r,
+                    toQ: hex.q,
+                    toR: hex.r,
+                    targetQ: mobiData.target.q,
+                    targetR: mobiData.target.r,
+                    special: 'MobiTeleport',
+                };
+                const res = applyAction(currentLocalState, action, mapConfig, gameParams);
+                if (res.success) {
+                    currentLocalState = res.newState;
+                    actionQueue.push(action);
+                }
+            }
+            selectedUnit = null;
+            validMoves = [];
             validTargets = [];
             updateUI();
             draw();
@@ -332,7 +384,48 @@ function setupCanvasEvents() {
                 toQ: hex.q,
                 toR: hex.r,
             };
-            const res = applyAction(currentLocalState, action, mapConfig, gameParams!);
+            const res = applyAction(currentLocalState, action, mapConfig, gameParams);
+            if (res.success) {
+                currentLocalState = res.newState;
+                actionQueue.push(action);
+            }
+            selectedUnit = null;
+            validMoves = [];
+            validTargets = [];
+            updateUI();
+            draw();
+            return;
+        }
+
+        // Handle Act Target Click (Attack, Heal, Scramble, ToggleSiege, MobiSelectTarget)
+        const tgt = validTargets.find(t => t.q === hex.q && t.r === hex.r);
+        if (tgt && selectedUnit) {
+            if (tgt.special === 'MobiSelectTarget') {
+                const targetUnit = currentLocalState.units.find(u => u.q === hex.q && u.r === hex.r);
+                if (targetUnit) {
+                    pendingMobiTeleport = { mobi: selectedUnit, target: targetUnit };
+                    validTargets = [];
+                    validMoves = [];
+                    getNeighbors(selectedUnit.q, selectedUnit.r, mapConfig.geomGrid).forEach(n => {
+                        const occ = currentLocalState!.units.find(u => u.q === n.q && u.r === n.r);
+                        if (!isObstacle(n.q, n.r, mapConfig!) && (!occ || occ === targetUnit)) {
+                            validTargets.push({ q: n.q, r: n.r, special: 'MobiExecuteTeleport' });
+                        }
+                    });
+                    draw();
+                    return;
+                }
+            }
+
+            const action: GameAction = {
+                action: 'ACT',
+                fromQ: selectedUnit.q,
+                fromR: selectedUnit.r,
+                toQ: hex.q,
+                toR: hex.r,
+                special: tgt.special as any,
+            };
+            const res = applyAction(currentLocalState, action, mapConfig, gameParams);
             if (res.success) {
                 currentLocalState = res.newState;
                 actionQueue.push(action);
@@ -350,7 +443,7 @@ function setupCanvasEvents() {
         if (u && u.player === currentLocalState.turn) {
             selectedUnit = u;
             validMoves = calculateValidMoves(u, currentLocalState, mapConfig, false);
-            validTargets = calculateValidTargets(u, currentLocalState, mapConfig, gameParams!, false);
+            validTargets = calculateValidTargets(u, currentLocalState, mapConfig, gameParams, false);
         } else {
             selectedUnit = null;
             validMoves = [];
@@ -378,7 +471,7 @@ function drawHex(x: number, y: number, r: number, f: string, s: string, w: numbe
 }
 
 function draw() {
-    if (!mapConfig || !currentLocalState) return;
+    if (!mapConfig || !currentLocalState || !gameParams) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -387,12 +480,30 @@ function draw() {
     ctx.translate(panX, panY);
     ctx.scale(zoom, zoom);
 
-    // Draw Hex Grid
+    const p1C = COLORS[gameParams.p1ColorKey || 'blue'];
+    const p2C = COLORS[gameParams.p2ColorKey || 'red'];
+
+    // Draw Hex Grid with Bases, Obstacles, Bonus Spaces
     mapConfig.geomGrid.forEach(hex => {
         const p = hexToPixel(hex.q, hex.r, hexRadius);
         p.x += offsetX; p.y += offsetY;
 
+        const isP1Base = isBase(hex.q, hex.r, 'P1', mapConfig!);
+        const isP2Base = isBase(hex.q, hex.r, 'P2', mapConfig!);
+        const isObs = isObstacle(hex.q, hex.r, mapConfig!);
+        const isBonus = isBonusSpace(hex.q, hex.r, mapConfig!);
+
         let f = '#1c1c24', s = '#3f3f46', w = 1;
+
+        if (isP1Base) {
+            f = p1C.dark; s = p1C.stroke; w = 2;
+        } else if (isP2Base) {
+            f = p2C.dark; s = p2C.stroke; w = 2;
+        } else if (isObs) {
+            f = '#064e3b'; s = '#022c22'; w = 2;
+        } else if (isBonus) {
+            f = '#2d2a1e'; s = '#ffd700'; w = 2;
+        }
 
         if (validMoves.some(m => m.q === hex.q && m.r === hex.r)) {
             f = '#155e37'; s = '#86efac'; w = 2;
@@ -403,15 +514,19 @@ function draw() {
         drawHex(p.x, p.y, hexRadius, f, s, w);
     });
 
-    // Draw Units
+    // Draw Units & Health Badges
     currentLocalState.units.forEach(u => {
         const p = hexToPixel(u.q, u.r, hexRadius);
         p.x += offsetX; p.y += offsetY;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, hexRadius * 0.75, 0, 2 * Math.PI);
-        ctx.fillStyle = u.player === 'P1' ? '#1d4ed8' : '#b91c1c';
+        ctx.fillStyle = u.player === 'P1' ? p1C.base : p2C.base;
         ctx.fill();
+
+        ctx.lineWidth = selectedUnit === u ? 3 : 1.5;
+        ctx.strokeStyle = selectedUnit === u ? '#facc15' : '#ffffff';
+        ctx.stroke();
 
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
@@ -419,6 +534,15 @@ function draw() {
         ctx.fillStyle = '#fff';
         const rules = UNIT_RULES[u.type] || UNIT_RULES.Soldier;
         ctx.fillText(rules.emoji, p.x, p.y);
+
+        // Draw HP Badge
+        const hpOffset = Math.round(hexRadius * 0.4);
+        ctx.font = 'bold 9px sans-serif';
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#000';
+        ctx.strokeText(String(u.hp), p.x + hpOffset, p.y + hpOffset);
+        ctx.fillStyle = u.hp > u.maxHp ? '#4ade80' : '#facc15';
+        ctx.fillText(String(u.hp), p.x + hpOffset, p.y + hpOffset);
     });
 
     ctx.restore();
