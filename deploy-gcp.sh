@@ -19,11 +19,13 @@ gcloud config set project $PROJECT_ID
 echo "Enabling Google Cloud APIs..."
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
 
-# Step 1: Deploy Backend API to Cloud Run
-echo "Building and deploying Backend API ($API_SERVICE_NAME)..."
+# Step 1: Build & Deploy Backend API Container
+echo "Building Backend API Container Image..."
+gcloud builds submit --tag "gcr.io/${PROJECT_ID}/${API_SERVICE_NAME}" -f server/Dockerfile .
+
+echo "Deploying Backend API to Cloud Run..."
 gcloud run deploy $API_SERVICE_NAME \
-  --source . \
-  --dockerfile server/Dockerfile \
+  --image "gcr.io/${PROJECT_ID}/${API_SERVICE_NAME}" \
   --region $REGION \
   --allow-unauthenticated \
   --port 3001 \
@@ -33,15 +35,16 @@ gcloud run deploy $API_SERVICE_NAME \
 API_URL=$(gcloud run services describe $API_SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
 echo "Backend API deployed at: $API_URL"
 
-# Step 2: Deploy Frontend Client Web App to Cloud Run
-echo "Building and deploying Frontend Client ($WEB_SERVICE_NAME)..."
+# Step 2: Build & Deploy Frontend Client Container
+echo "Building Frontend Client Container Image..."
+gcloud builds submit --tag "gcr.io/${PROJECT_ID}/${WEB_SERVICE_NAME}" --substitutions=_VITE_API_BASE_URL="${API_URL}/api" -f client/Dockerfile .
+
+echo "Deploying Frontend Client to Cloud Run..."
 gcloud run deploy $WEB_SERVICE_NAME \
-  --source . \
-  --dockerfile client/Dockerfile \
+  --image "gcr.io/${PROJECT_ID}/${WEB_SERVICE_NAME}" \
   --region $REGION \
   --allow-unauthenticated \
-  --port 80 \
-  --set-env-vars VITE_API_BASE_URL="${API_URL}/api"
+  --port 80
 
 WEB_URL=$(gcloud run services describe $WEB_SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)')
 
