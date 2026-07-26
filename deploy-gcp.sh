@@ -37,7 +37,7 @@ echo "Backend API deployed at: $API_URL"
 
 # Step 2: Build & Deploy Frontend Client Container
 echo "Building Frontend Client Container Image via Cloud Build..."
-gcloud builds submit --config=cloudbuild-web.yaml .
+gcloud builds submit --config=cloudbuild-web.yaml --substitutions=_VITE_API_BASE_URL="${API_URL}/api" .
 
 echo "Deploying Frontend Client to Cloud Run..."
 gcloud run deploy $WEB_SERVICE_NAME \

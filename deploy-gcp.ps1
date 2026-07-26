@@ -36,7 +36,7 @@ Write-Host "Backend API deployed at: $API_URL" -ForegroundColor Green
 
 # Step 2: Build & Deploy Frontend Client Container
 Write-Host "Building Frontend Client Container Image via Cloud Build..." -ForegroundColor Yellow
-gcloud builds submit --config=cloudbuild-web.yaml .
+gcloud builds submit --config=cloudbuild-web.yaml --substitutions=_VITE_API_BASE_URL="$API_URL/api" .
 
 Write-Host "Deploying Frontend Client to Cloud Run..." -ForegroundColor Yellow
 gcloud run deploy $WEB_SERVICE_NAME `

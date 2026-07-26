@@ -1,6 +1,22 @@
 import type { GameAction, RaceId, ColorKey, RawMapDefinition } from '@outwitters/shared';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001/api';
+function getApiBaseUrl(): string {
+    const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+    if (envUrl && typeof envUrl === 'string' && !envUrl.includes('localhost')) {
+        return envUrl;
+    }
+    if (typeof window !== 'undefined' && window.location) {
+        const hostname = window.location.hostname;
+        if (hostname.includes('run.app')) {
+            // Google Cloud Run dynamic pairing: outwitters-web-xxx.run.app -> outwitters-api-xxx.run.app
+            const apiHost = hostname.replace('outwitters-web', 'outwitters-api');
+            return `${window.location.protocol}//${apiHost}/api`;
+        }
+    }
+    return envUrl || 'http://localhost:3001/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface CreateMatchParams {
     creatorUserId: string;
