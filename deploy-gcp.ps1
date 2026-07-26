@@ -19,8 +19,8 @@ Write-Host "Enabling Google Cloud APIs..." -ForegroundColor Yellow
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
 
 # Step 1: Build & Deploy Backend API Container
-Write-Host "Building Backend API Container Image..." -ForegroundColor Yellow
-gcloud builds submit --tag "gcr.io/$PROJECT_ID/$API_SERVICE_NAME" -f server/Dockerfile .
+Write-Host "Building Backend API Container Image via Cloud Build..." -ForegroundColor Yellow
+gcloud builds submit --config=cloudbuild-api.yaml .
 
 Write-Host "Deploying Backend API to Cloud Run..." -ForegroundColor Yellow
 gcloud run deploy $API_SERVICE_NAME `
@@ -35,8 +35,8 @@ $API_URL = (gcloud run services describe $API_SERVICE_NAME --platform managed --
 Write-Host "Backend API deployed at: $API_URL" -ForegroundColor Green
 
 # Step 2: Build & Deploy Frontend Client Container
-Write-Host "Building Frontend Client Container Image..." -ForegroundColor Yellow
-gcloud builds submit --tag "gcr.io/$PROJECT_ID/$WEB_SERVICE_NAME" -f client/Dockerfile .
+Write-Host "Building Frontend Client Container Image via Cloud Build..." -ForegroundColor Yellow
+gcloud builds submit --config=cloudbuild-web.yaml .
 
 Write-Host "Deploying Frontend Client to Cloud Run..." -ForegroundColor Yellow
 gcloud run deploy $WEB_SERVICE_NAME `
