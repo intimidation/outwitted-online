@@ -28,7 +28,7 @@ gcloud run deploy $API_SERVICE_NAME `
   --region $REGION `
   --allow-unauthenticated `
   --port 3001 `
-  --set-env-vars HOST=0.0.0.0,PORT=3001
+  --set-env-vars HOST=0.0.0.0
 
 # Retrieve backend service URL
 $API_URL = (gcloud run services describe $API_SERVICE_NAME --platform managed --region $REGION --format 'value(status.url)').Trim()
