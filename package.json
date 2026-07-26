@@ -1,0 +1,11 @@
+{
+  "name": "outwitters-online",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Outwitters — Async 1v1 Tactical Strategy Game",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ]
+}

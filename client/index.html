@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Outwitters Online 1v1 Tactical Strategy</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0d;
+            --bg-panel: rgba(18, 18, 24, 0.85);
+            --border-color: rgba(63, 63, 70, 0.45);
+            --border-glow: rgba(34, 197, 94, 0.35);
+            --accent-green: #22c55e;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --accent-purple: #a855f7;
+            --accent-orange: #f97316;
+            --accent-gold: #facc15;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #lobby-screen {
+            width: 100%;
+            max-width: 440px;
+            height: 100%;
+            background-color: #0e0e12;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+        }
+
+        #lobby-screen h1 {
+            text-align: center;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #181822;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .user-bar span {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .user-bar button {
+            background: #272732;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .lobby-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .lobby-group label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        select, input[type="text"] {
+            padding: 12px 16px;
+            background-color: #1c1c24;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            width: 100%;
+            outline: none;
+        }
+
+        .race-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .race-card {
+            background-color: #1a1a22;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .race-card.active {
+            border-color: var(--accent-green);
+            background-color: rgba(34, 197, 94, 0.12);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.25);
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #fff;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 800;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            box-shadow: 0 4px 15px rgba(22, 163, 74, 0.25);
+        }
+
+        .action-btn:active {
+            transform: scale(0.97);
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 440px;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            background-color: #0d0d11;
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        header {
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .player-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .wits-badge {
+            font-weight: 800;
+            color: var(--accent-gold);
+            font-size: 14px;
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            background-color: #07070a;
+            overflow: hidden;
+        }
+
+        canvas {
+            background-color: #0b0b0f;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            touch-action: none;
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #control-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            padding: 10px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 4px;
+        }
+
+        button.unit-btn {
+            background-color: #181822;
+            color: #f4f4f5;
+            border: 1px solid var(--border-color);
+            padding: 6px 2px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2px;
+        }
+
+        button.unit-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .action-row {
+            grid-column: span 6;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .action-row button {
+            padding: 10px 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 800;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #submit-turn-btn {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            grid-column: span 2;
+        }
+
+        #menu-btn {
+            background: #272732;
+            border-color: var(--border-color);
+        }
+
+        .match-card {
+            background: #161620;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .match-card.your-turn {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+        }
+
+        @media (min-width: 600px) {
+            #lobby-screen, #app-container {
+                max-width: 800px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOBBY SCREEN -->
+    <div id="lobby-screen">
+        <h1>OUTWITTERS ONLINE</h1>
+
+        <div class="user-bar">
+            <span>👤 Logged in as: <strong id="user-display-name">Player 1</strong></span>
+            <button onclick="switchUserPrompt()">Switch User</button>
+        </div>
+
+        <div class="lobby-group">
+            <label>Active Online Battles</label>
+            <div id="active-matches-list" style="display:flex; flex-direction:column; gap:8px; max-height: 180px; overflow-y: auto;">
+                <div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 10px;">Loading battles...</div>
+            </div>
+        </div>
+
+        <div class="lobby-group" style="margin-top: 10px;">
+            <label>Create New Online Match</label>
+            <select id="map-select">
+                <option value="SweetTooth" selected>Sweet Tooth (1v1)</option>
+                <option value="SharkfoodIsland">Sharkfood Island (1v1)</option>
+                <option value="Foundry">Foundry (1v1)</option>
+                <option value="SkullDuggery">Skull Duggery (1v1)</option>
+                <option value="Glitch">Glitch (1v1)</option>
+                <option value="WarGarden">War Garden (1v1)</option>
+                <option value="GorgonHallow">Gorgon Hallow (1v1)</option>
+            </select>
+        </div>
+
+        <div class="lobby-group">
+            <label>Opponent User ID</label>
+            <input type="text" id="opponent-id-input" value="usr_player2" placeholder="e.g. usr_player2" />
+        </div>
+
+        <div class="lobby-group">
+            <label>Your Race</label>
+            <div class="race-grid" id="race-grid">
+                <div class="race-card active" data-race="Scallywags" onclick="selectRace('Scallywags')">
+                    <span style="font-size: 20px;">🐚</span>
+                    <span style="font-size: 9px; font-weight: 700; text-transform: uppercase;">Scally</span>
+                </div>
+                <div class="race-card" data-race="Feedback" onclick="selectRace('Feedback')">
+                    <span style="font-size: 20px;">🧠</span>
+                    <span style="font-size: 9px; font-weight: 700; text-transform: uppercase;">Feedbk</span>
+                </div>
+                <div class="race-card" data-race="Adorables" onclick="selectRace('Adorables')">
+                    <span style="font-size: 20px;">🐳</span>
+                    <span style="font-size: 9px; font-weight: 700; text-transform: uppercase;">Adorab</span>
+                </div>
+                <div class="race-card" data-race="Veggienauts" onclick="selectRace('Veggienauts')">
+                    <span style="font-size: 20px;">🌱</span>
+                    <span style="font-size: 9px; font-weight: 700; text-transform: uppercase;">Veggie</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); cursor: pointer;">
+                <input type="checkbox" id="pog-toggle" style="margin-right: 4px;" /> Price of Glory Mode
+            </label>
+            <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); cursor: pointer;">
+                <input type="checkbox" id="ranked-toggle" checked style="margin-right: 4px;" /> Ranked Match
+            </label>
+        </div>
+
+        <button class="action-btn" onclick="createNewOnlineMatch()">⚔️ Launch Match</button>
+    </div>
+
+    <!-- GAME APP CONTAINER -->
+    <div id="app-container">
+        <header>
+            <div id="p1-panel" class="player-panel">
+                <span id="p1-name" style="font-weight: 800; font-size: 12px;">🔵 P1</span>
+                <span style="font-size: 10px; color: var(--text-secondary);">Wits: <span id="p1-wits" class="wits-badge">5</span></span>
+            </div>
+            <div id="turn-banner" style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; background: var(--accent-blue);">
+                TURN 1 : YOUR TURN
+            </div>
+            <div id="p2-panel" class="player-panel" style="text-align: right;">
+                <span id="p2-name" style="font-weight: 800; font-size: 12px;">🔴 P2</span>
+                <span style="font-size: 10px; color: var(--text-secondary);">Wits: <span id="p2-wits" class="wits-badge">?</span></span>
+            </div>
+        </header>
+
+        <div id="canvas-wrapper">
+            <canvas id="game-canvas"></canvas>
+        </div>
+
+        <div id="control-panel">
+            <div class="shop-grid">
+                <button class="unit-btn" id="btn-Runner" onclick="spawnUnit('Runner')"><span>🏃</span> <span style="color:var(--accent-gold);">1</span></button>
+                <button class="unit-btn" id="btn-Soldier" onclick="spawnUnit('Soldier')"><span>⚔️</span> <span style="color:var(--accent-gold);">2</span></button>
+                <button class="unit-btn" id="btn-Medic" onclick="spawnUnit('Medic')"><span style="color:#ef4444;">✚</span> <span style="color:var(--accent-gold);">2</span></button>
+                <button class="unit-btn" id="btn-Sniper" onclick="spawnUnit('Sniper')"><span>🏹</span> <span style="color:var(--accent-gold);">3</span></button>
+                <button class="unit-btn" id="btn-Heavy" onclick="spawnUnit('Heavy')"><span>💪</span> <span style="color:var(--accent-gold);">4</span></button>
+                <button class="unit-btn" id="btn-Special" onclick="spawnSpecial()"><span>⭐</span> <span style="color:var(--accent-gold);">7</span></button>
+
+                <div class="action-row">
+                    <button id="menu-btn" onclick="returnToMenu()">🏠 Menu</button>
+                    <button id="submit-turn-btn" onclick="submitCurrentTurn()">Submit Turn ▶</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

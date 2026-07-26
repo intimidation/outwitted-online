@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: outwitters_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: outwitters
+      POSTGRES_USER: outwitters_user
+      POSTGRES_PASSWORD: outwitters_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./server/src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: outwitters_server
+    restart: always
+    environment:
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://outwitters_user:outwitters_password@postgres:5432/outwitters
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3001/api}
+    container_name: outwitters_client
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+
+volumes:
+  pgdata:
